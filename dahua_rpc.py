@@ -99,6 +99,10 @@ class DahuaRpc(object):
                   'passwordType': "Default"}
         r = self.request(method=method, params=params, url=url)
 
+        # Use the correct session id from the second login request
+        if r["result"] is True and "session" in r:
+            self.session_id = r["session"]
+        
         if r['result'] is False:
             raise LoginError(str(r))
 
