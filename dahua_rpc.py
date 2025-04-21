@@ -25,8 +25,8 @@ Dependencies:
 
 import sys
 import hashlib
-
 import requests
+import time
 from enum import Enum
 
 if (sys.version_info > (3, 0)):
@@ -98,11 +98,13 @@ class DahuaRpc(object):
                   'authorityType': "Default",
                   'passwordType': "Default"}
         r = self.request(method=method, params=params, url=url)
-
+        
+        print(f"Login obtenido: {r}")
+        
         # Use the correct session id from the second login request
         if r["result"] is True and "session" in r:
             self.session_id = r["session"]
-        
+
         if r['result'] is False:
             raise LoginError(str(r))
 
@@ -144,12 +146,12 @@ class DahuaRpc(object):
         else:
             raise RequestError(str(r))
 
-    def start_find(self,object_id):
+    def start_find(self,object_id,milli_from=1558925818,milli_to=1559012218):
         method = "RecordFinder.startFind"
         object_id = object_id
         params = {
             "condition" : {
-                "Time" : ["<>",1558925818,1559012218]
+                "Time" : ["<>",milli_from,milli_to]
             }
         }
         r = self.request(object_id=object_id,method=method, params=params)
@@ -260,7 +262,6 @@ class DahuaRpc(object):
 
         return r['params']
 
-
     def listen_events(self, _callback= None):
         """ Listen for envents. Attach an event before using this function """
         url = "http://{host}/SubscribeNotify.cgi?sessionId={session}".format(host=self.host,session=self.session_id)
@@ -297,6 +298,65 @@ class DahuaRpc(object):
 
         if r['result'] is False:
             raise RequestError(str(r))
+        
+    """Get last ANPR/LPR available event."""
+    def get_last_plate(self):
+        # Set and get the factory object_id
+        object_id = self.get_traffic_info()
+
+        # Set search interval (00:00:00 a 23:59:59 from Now)
+        now = int(time.time())
+        start_of_day = now - (now % 86400)  # 00:00:00
+        end_of_day = start_of_day + 86400 - 1  # 23:59:59
+
+        # Llamar a start_find con el rango de tiempo
+        self.start_find(object_id, milli_from=start_of_day, milli_to=end_of_day)
+
+        # Call to do_find for getting the records
+        r = self.do_find(object_id)
+
+        # Check if records are found
+        if "params" in r and "records" in r["params"]:
+            records = r["params"]["records"]
+            if records:
+                # Sorts the records by the "Time" field in ascending order
+                sorted_records = sorted(records, key=lambda x: x['Time'], reverse=True)
+        
+                # Returns the first (most recent) record
+                return sorted_records[0]
+            else:
+                raise RequestError("❌ No records found.")
+        else:
+            raise RequestError("❌ Error obtaining patent records.")
+        
+    """Open barrier."""
+    def open_barrier(self):
+        method = "trafficSnap.openStrobe"
+        params = {
+            "info": {
+                "openType": "Test",
+                "plateNumber": ""
+            }
+        }
+
+        r = self.request(method=method, params=params)
+        
+        if r.get("result") is True:
+            print("✅ Barrier successfully opened!")
+        else:
+            raise RequestError(f"❌ Cannot open barrier: {r}")
+        
+        
+    """Capture snapShot manually."""
+    def snap_shot(self):
+        method = "trafficSnap.manSnap"
+
+        r = self.request(method=method)
+        
+        if r.get("result") is True:
+            print("✅ Snapshot captured!")
+        else:
+            raise RequestError(f"❌ The snapshot couldn't be captured: {r}")
 
 
 class LoginError(Exception):
