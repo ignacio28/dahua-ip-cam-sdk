@@ -25,6 +25,7 @@ Dependencies:
 
 import sys
 import hashlib
+
 import requests
 import time
 from enum import Enum
@@ -146,7 +147,7 @@ class DahuaRpc(object):
         else:
             raise RequestError(str(r))
 
-    def start_find(self,object_id,milli_from=1558925818,milli_to=1559012218):
+    def start_find(self,object_id,milli_from=int(time.time()) - (int(time.time()) % 86400),milli_to=(int(time.time()) - (int(time.time()) % 86400)) + 86400):
         method = "RecordFinder.startFind"
         object_id = object_id
         params = {
@@ -329,7 +330,7 @@ class DahuaRpc(object):
         else:
             raise RequestError("❌ Error obtaining patent records.")
         
-    """Open barrier."""
+    # Open barrier
     def open_barrier(self):
         method = "trafficSnap.openStrobe"
         params = {
@@ -347,7 +348,7 @@ class DahuaRpc(object):
             raise RequestError(f"❌ Cannot open barrier: {r}")
         
         
-    """Capture snapShot manually."""
+    # Capture snapShot manually
     def snap_shot(self):
         method = "trafficSnap.manSnap"
 
@@ -356,7 +357,7 @@ class DahuaRpc(object):
         if r.get("result") is True:
             print("✅ Snapshot captured!")
         else:
-            raise RequestError(f"❌ The snapshot couldn't be captured: {r}")
+            raise RequestError(f"The snapshot couldn't be captured: {r}")
 
 
 class LoginError(Exception):
